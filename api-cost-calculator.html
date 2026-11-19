@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>API cost calculator</title>
+<style>
+  :root{
+    --bg:#000;
+    --panel:#0b0b0b;
+    --panel-2:#121212;
+    --sunken:#080808;
+    --line:#333;
+    --line-soft:#222;
+    --text:#fff;
+    --muted:#aaa;
+    --dim:#777;
+    --accent:#fff;
+    --accent-2:#bbb;
+    --mint:#fff;
+    --amber:#ccc;
+    --rose:#999;
+    --radius:18px;
+    --shadow:0 22px 60px rgba(0,0,0,.9);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1000px 620px at 8% -12%, rgba(255,255,255,.07), transparent 62%),
+      radial-gradient(860px 520px at 100% -4%, rgba(255,255,255,.05), transparent 58%),
+      radial-gradient(700px 500px at 50% 110%, rgba(255,255,255,.03), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font:15px/1.58 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:#ddd;text-decoration:none}
+  a:hover{color:#fff;text-decoration:underline}
+  button,input,select,textarea{font:inherit}
+  ::selection{background:rgba(255,255,255,.25)}
+
+  .shell{max-width:1360px;margin:0 auto;padding:32px 24px 80px}
+
+  /* ---------- HERO ---------- */
+  .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:30px;flex-wrap:wrap}
+  .hero h1{margin:0;font-size:27px;letter-spacing:-.7px;line-height:1.18}
+  .hero h1 em{font-style:normal;color:#bdbdbd}
+  .hero p{margin:5px 0 0;color:var(--muted);font-size:14px;max-width:640px}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pill{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+    background:#080808;border:1px solid #444;font-size:11.5px;color:#ccc;backdrop-filter:blur(8px)
+  }
+  .pill.ok{background:#fff;border-color:#fff;color:#000;font-weight:650}
+  .pill.off{border-color:#777;color:var(--muted)}
+
+  /* ---------- LAYOUT ---------- */
+  .grid{display:grid;grid-template-columns:minmax(0,1.07fr) minmax(392px,.93fr);gap:22px;align-items:start}
+  @media(max-width:1020px){.grid{grid-template-columns:1fr}}
+
+  .card{
+    background:linear-gradient(158deg,#141414,#080808);
+    border:1px solid var(--line);border-radius:var(--radius);padding:22px;
+    box-shadow:var(--shadow);position:relative;overflow:visible
+  }
+  .card:before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
+  .card + .card{margin-top:20px}
+
+  .stephead{display:flex;align-items:flex-start;gap:13px;margin-bottom:18px}
+  .stepnum{
+    width:30px;height:30px;border-radius:10px;display:grid;place-items:center;flex:none;
+    font-size:13px;font-weight:800;color:#000;background:#fff;box-shadow:0 6px 18px rgba(255,255,255,.08)
+  }
+  .stephead h2{margin:0;font-size:16.5px;letter-spacing:-.2px;line-height:1.3}
+  .stephead p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
+  .stephead .aside{margin-left:auto;font-size:11px;color:var(--dim);white-space:nowrap;padding-top:4px}
+
+  /* ---------- PROVIDERS ---------- */
+  .providers{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  @media(max-width:620px){.providers{grid-template-columns:repeat(2,1fr)}}
+  .prov{
+    border:1px solid var(--line);background:var(--sunken);border-radius:12px;padding:11px 9px;
+    cursor:pointer;text-align:center;color:var(--muted);transition:.18s ease;display:flex;flex-direction:column;
+    align-items:center;gap:7px;min-height:78px;justify-content:center
+  }
+  .prov:hover{transform:translateY(-2px);border-color:#999;color:#fff}
+  .prov .ico{
+    width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;
+    background:#111;border:1px solid #444;color:#fff
+  }
+  .prov .ico svg{width:19px;height:19px;display:block}
+  .prov .ico svg.wide{width:30px;height:auto;max-height:20px}
+  .prov .nm{font-size:11.5px;font-weight:600;line-height:1.2}
+  .prov.active{
+    color:#000;border-color:#fff;background:#fff;
+    box-shadow:0 0 0 1px #fff,0 10px 24px rgba(0,0,0,.6)
+  }
+  .prov.active .ico{background:#000;border-color:#000;color:#fff}
+
+  /* ---------- MODEL PICKER ---------- */
+  .picker{position:relative;margin-top:16px}
+  .pickbtn{
+    width:100%;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;
+    background:linear-gradient(135deg,#080808,#121212);border:1px solid #4a4a4a;border-radius:13px;
+    padding:11px 13px;color:var(--text);transition:.18s
+  }
+  .pickbtn:hover,.pickbtn.open{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.1)}
+  .pickico{
+    width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none;
+    background:#000;color:#fff;border:1px solid #555
+  }
+  .pickico svg{width:24px;height:24px;display:block}
+  .pickico svg.wide{width:38px;height:auto;max-height:26px}
+  .picktxt{flex:1;min-width:0}
+  .pickname{font-weight:700;font-size:14.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pickmeta{font-size:11.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+  .pickmeta b{color:#fff;font-weight:600}
+  .chevron{color:var(--muted);font-size:17px;transition:.18s}
+  .pickbtn.open .chevron{transform:rotate(180deg);color:#fff}
+  .badge{font-size:9px;font-weight:800;letter-spacing:.6px;padding:2px 6px;border-radius:5px;text-transform:uppercase;vertical-align:middle}
+  .badge.new{background:#fff;color:#000;border:1px solid #fff}
+  .badge.cheap{background:transparent;color:#ccc;border:1px solid #777}
+  .badge.pop{background:rgba(255,255,255,.12);color:#fff;border:1px solid #999}
+  .badge.live{background:transparent;color:#ddd;border:1px dashed #999}
+
+  .panel{
+    position:absolute;z-index:40;top:calc(100% + 7px);left:0;right:0;
+    background:#050505;border:1px solid #666;border-radius:14px;box-shadow:0 26px 70px rgba(0,0,0,.9);
+    overflow:hidden;animation:pop .14s ease-out
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+  .phead{padding:11px 12px 9px;border-bottom:1px solid var(--line-soft)}
+  .searchwrap{position:relative}
+  .searchwrap span{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:14px}
+  .searchwrap input{
+    width:100%;background:#000;border:1px solid var(--line);border-radius:9px;padding:9px 10px 9px 32px;
+    color:var(--text);outline:none;font-size:13px
+  }
+  .searchwrap input:focus{border-color:#fff}
+  .filters{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  .chip{
+    border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;
+    padding:4px 9px;font-size:10.5px;cursor:pointer;transition:.15s
+  }
+  .chip:hover{color:#fff;border-color:#999}
+  .chip.on{background:#fff;border-color:#fff;color:#000;font-weight:650}
+  .plist{max-height:330px;overflow:auto;padding:6px}
+  .prow{
+    display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid transparent
+  }
+  .prow:hover,.prow.kb{background:#1a1a1a;border-color:#555}
+  .prow.sel{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.6)}
+  .prow .dotm{width:7px;height:7px;border-radius:50%;background:#fff;flex:none;opacity:.85}
+  .prow .pinfo{flex:1;min-width:0}
+  .prow .pname{font-size:12.8px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .pdesc{font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .pprice{text-align:right;font-size:10.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .prow .pprice b{color:#fff;font-weight:600}
+  .pfoot{padding:8px 12px;border-top:1px solid var(--line-soft);font-size:10.5px;color:var(--dim);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .kbd{font-family:ui-monospace,Menlo,monospace;background:#111;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:10px;color:var(--muted)}
+
+  .metarow{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .tag{font-size:11px;color:var(--muted);background:var(--sunken);border:1px solid var(--line);border-radius:7px;padding:5px 9px}
+  .tag b{color:#fff;font-weight:650}
+  .tag.note{color:#ddd;border-color:#666;background:rgba(255,255,255,.04)}
+
+  /* ---------- PROMPTS ---------- */
+  .promptlabel{
+    display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:650;
+    text-transform:uppercase;letter-spacing:.6px
+  }
+  .promptlabel .spark{color:#fff}
+  textarea#prompts{
+    width:100%;min-height:224px;resize:vertical;background:#000;color:var(--text);
+    border:1px solid #4a4a4a;border-radius:13px;padding:14px 15px;outline:none;line-height:1.65;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.8px;transition:.16s
+  }
+  textarea#prompts:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.09)}
+  textarea#prompts::placeholder{color:#666}
+  .underrow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+  .underrow .hintline{font-size:11.5px;color:var(--dim)}
+  .underrow .hintline b{color:#fff}
+  .actions{display:flex;gap:7px;flex-wrap:wrap}
+  .btn{
+    border:1px solid var(--line);background:#151515;color:var(--text);border-radius:9px;
+    padding:7px 11px;font-size:11.5px;cursor:pointer;transition:.16s;white-space:nowrap
+  }
+  .btn:hover{border-color:#fff;background:#fff;color:#000;transform:translateY(-1px)}
+  .btn.file{position:relative;overflow:hidden}
+  .btn.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .btn.soft{background:transparent}
+
+  .seg{display:inline-flex;background:#050505;border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-top:15px;flex-wrap:wrap}
+  .seg button{border:0;background:transparent;color:var(--muted);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;transition:.15s}
+  .seg button:hover{color:#fff}
+  .seg button.on{background:#fff;color:#000;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .customsep{margin-top:10px;max-width:260px}
+  input,textarea,select{color:var(--text)}
+  input[type=number],input[type=text]{background:var(--sunken);border:1px solid var(--line);border-radius:9px;padding:9px 10px;outline:none;width:100%;font-size:13px}
+  input[type=number]:focus,input[type=text]:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.09)}
+
+  /* ---------- EXTRAS / CUSTOM ---------- */
+  .extras{margin-top:16px;border-top:1px solid var(--line-soft);padding-top:14px}
+  details.faq{border-bottom:1px solid var(--line-soft)}
+  details.faq:last-child{border-bottom:0}
+  details.faq summary{cursor:pointer;list-style:none;padding:10px 0;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:9px}
+  details.faq summary::-webkit-details-marker{display:none}
+  details.faq summary:before{content:"+";color:#fff;font-weight:800;width:14px;text-align:center}
+  details.faq[open] summary:before{content:"−"}
+  details.faq p{margin:0 0 12px 23px;font-size:12px;color:var(--muted);line-height:1.65}
+  .fieldgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:620px){.fieldgrid{grid-template-columns:1fr}}
+  .fld label,.fld .lbl{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .help{font-size:11.5px;color:var(--dim);margin:8px 0 0;line-height:1.6}
+
+  /* ---------- RESULTS ---------- */
+  .results{position:sticky;top:20px}
+  @media(max-width:1020px){.results{position:static}}
+  .resulthead{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+  .resulthead .rk{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.12);color:#fff;border:1px solid #777;font-size:15px;flex:none}
+  .resulthead h2{margin:0;font-size:16.5px}
+  .resulthead .live{margin-left:auto;font-size:10px;color:#fff;letter-spacing:.6px;text-transform:uppercase;font-weight:700}
+
+  .plain{
+    font-size:12.5px;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid #3a3a3a;
+    border-radius:11px;padding:11px 13px;margin-bottom:18px
+  }
+  .plain b{color:#fff}
+  .amountbox{
+    border-radius:15px;padding:20px 20px 17px;
+    background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 55%,rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.42);position:relative;overflow:hidden
+  }
+  .amountbox:after{content:"";position:absolute;width:220px;height:220px;right:-70px;top:-110px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%)}
+  .amtlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:1.3px;color:#ddd;font-weight:700}
+  .amount{font-size:46px;font-weight:820;letter-spacing:-2px;line-height:1.12;margin:5px 0 2px;background:linear-gradient(92deg,#fff,#b5b5b5 60%,#efefef);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+  .amtcur{font-size:13px;color:var(--muted);margin-left:6px;letter-spacing:0;-webkit-text-fill-color:var(--muted)}
+  .amtsub{font-size:11.5px;color:var(--muted);position:relative;z-index:1}
+  .amtsub b{color:#fff}
+
+  .split{margin-top:16px}
+  .splitbar{height:9px;border-radius:999px;background:#1c1c1c;overflow:hidden;display:flex}
+  .splitbar i{display:block;height:100%;transition:width .35s ease}
+  .barin{background:linear-gradient(90deg,#fff,#bbb)}
+  .barout{background:linear-gradient(90deg,#888,#555)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .swatch{width:8px;height:8px;border-radius:3px;display:inline-block}
+
+  .warnbox{margin-top:12px;font-size:11.5px;color:#ddd;background:rgba(255,255,255,.05);border:1px solid #666;padding:9px 11px;border-radius:9px;display:none}
+
+  .sect{margin-top:22px}
+  .secttitle{font-size:10.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);font-weight:750;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px}
+  .secttitle span{text-transform:none;letter-spacing:0;font-weight:500;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line-soft)}
+  th{color:var(--dim);font-weight:650;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr:hover td{background:rgba(255,255,255,.03)}
+  tr.total td{background:rgba(255,255,255,.14);font-weight:750;color:#fff}
+  tr.total td:first-child{border-radius:7px 0 0 7px}
+  tr.total td:last-child{border-radius:0 7px 7px 0}
+  tr.mine td{background:rgba(255,255,255,.09)}
+  tr.mine td:first-child{box-shadow:inset 2px 0 0 #fff}
+  .rank{color:#fff;font-weight:800;width:20px}
+  .muted{color:var(--muted)}
+  .dim{color:var(--dim)}
+  .mint{color:#fff}
+  .scroll{max-height:268px;overflow:auto;padding-right:3px}
+  .scroll::-webkit-scrollbar{width:6px}
+  .scroll::-webkit-scrollbar-thumb{background:#444;border-radius:9px}
+  .empty{padding:22px 10px;text-align:center;color:var(--dim);font-size:12px;border:1px dashed var(--line);border-radius:11px}
+  .empty .eico{font-size:22px;display:block;margin-bottom:6px;opacity:.7}
+  .cheapline{margin:12px 0 0;font-size:11.5px;color:#fff}
+
+  .actionrow{display:flex;gap:8px;margin-top:16px}
+  .actionrow .btn{flex:1;text-align:center}
+  .disclaimer{font-size:11px;color:var(--dim);margin:12px 0 0;line-height:1.65}
+
+  footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line-soft);color:var(--dim);font-size:11px;line-height:1.75}
+  footer a{color:#bbb}
+
+  /* ---------- WORD EXPLAINERS ---------- */
+  .term{display:inline;white-space:nowrap}
+  .tbtn{
+    width:11px;height:11px;line-height:9px;padding:0;border:1px solid currentColor;border-radius:50%;
+    background:transparent;color:inherit;display:inline-block;text-align:center;cursor:help;
+    font-size:8px;font-weight:800;opacity:.7;vertical-align:1px;transition:.15s ease;margin-left:2px;
+    -webkit-user-select:none;user-select:none
+  }
+  .tbtn.i:before{content:"i";display:block;line-height:9px}
+  .tbtn.eye{border-radius:3px;opacity:.6;vertical-align:0}
+  .tbtn.eye svg{width:8px;height:8px;display:block;margin:1px auto 0}
+  .term:hover .tbtn,.tbtn:focus-visible{opacity:1;transform:translateY(-1px);outline:none;box-shadow:0 0 0 2px rgba(127,127,127,.28)}
+  .termTip{
+    position:fixed;z-index:10000;pointer-events:none;background:#111;color:#fff;border:1px solid #777;
+    border-radius:7px;padding:5px 8px;font-size:11px;font-weight:600;white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,0,0,.85);animation:pop .12s ease-out
+  }
+  .termPop{
+    position:fixed;z-index:10001;max-width:min(310px,calc(100vw - 24px));background:#080808;color:#fff;
+    border:1px solid #777;border-radius:11px;padding:12px 14px;box-shadow:0 20px 55px rgba(0,0,0,.9);
+    font-size:12px;line-height:1.55;animation:pop .16s ease-out
+  }
+  .termPop h3{margin:0 20px 5px 0;font-size:12.5px;letter-spacing:.2px}
+  .termPop p{margin:0;color:#bbb;font-size:11.5px}
+  .termPop .popClose{
+    position:absolute;top:6px;right:7px;width:18px;height:18px;border:0;background:transparent;color:#aaa;
+    font-size:16px;line-height:1;cursor:pointer;border-radius:5px
+  }
+  .termPop .popClose:hover{background:#222;color:#fff}
+  [hidden]{display:none!important}
+
+  /* ---------- DEVICE LAYOUTS ---------- */
+  /* JavaScript sets data-device on <html>. Media queries above remain as a fallback. */
+  :root[data-device="phone"]{--radius:15px}
+  :root[data-device="phone"] .shell{padding:18px 14px 56px}
+  :root[data-device="phone"] .hero{margin-bottom:20px;gap:14px}
+  :root[data-device="phone"] .hero h1{font-size:23px}
+  :root[data-device="phone"] .hero p{font-size:13px;max-width:none}
+  :root[data-device="phone"] .pills{width:100%}
+  :root[data-device="phone"] .card{padding:17px}
+  :root[data-device="phone"] .grid{grid-template-columns:1fr;gap:18px}
+  :root[data-device="phone"] .results{position:static;top:auto}
+  :root[data-device="phone"] .providers{grid-template-columns:repeat(2,1fr);gap:8px}
+  :root[data-device="phone"] .prov{min-height:70px;padding:9px 6px}
+  :root[data-device="phone"] .prov .ico{width:28px;height:28px}
+  :root[data-device="phone"] .prov .ico svg{width:17px;height:17px}
+  :root[data-device="phone"] .prov .nm{font-size:10.5px}
+  :root[data-device="phone"] .picker{margin-top:12px}
+  :root[data-device="phone"] .pickbtn{padding:10px;gap:9px}
+  :root[data-device="phone"] .pickico{width:34px;height:34px}
+  :root[data-device="phone"] .pickname{font-size:13.5px}
+  :root[data-device="phone"] .pickmeta{font-size:10.5px;gap:5px}
+  :root[data-device="phone"] .filters{gap:5px;margin-top:8px}
+  :root[data-device="phone"] .chip{padding:4px 8px;font-size:10px}
+  :root[data-device="phone"] .fieldgrid{grid-template-columns:1fr;gap:11px}
+  :root[data-device="phone"] .metarow{gap:6px}
+  :root[data-device="phone"] .tag{font-size:10px;padding:4px 7px}
+  :root[data-device="phone"] textarea#prompts{min-height:188px;font-size:12px;padding:12px}
+  :root[data-device="phone"] .seg{gap:1px;padding:3px}
+  :root[data-device="phone"] .seg button{padding:6px 8px;font-size:10px}
+  :root[data-device="phone"] .underrow{align-items:flex-start}
+  :root[data-device="phone"] .actions{width:100%}
+  :root[data-device="phone"] .actions .btn{flex:1;padding:7px 8px}
+  :root[data-device="phone"] .amount{font-size:38px;letter-spacing:-1.5px}
+  :root[data-device="phone"] .amtcur{font-size:11px}
+  :root[data-device="phone"] .legend{gap:10px;font-size:10.5px}
+  :root[data-device="phone"] table{font-size:11px}
+  :root[data-device="phone"] th,td{padding:8px 5px}
+  :root[data-device="phone"] th{font-size:9px}
+  :root[data-device="phone"] .scroll{max-height:230px}
+  :root[data-device="phone"] .secttitle{font-size:9.5px;margin-bottom:8px}
+  :root[data-device="phone"] .actionrow{flex-direction:column}
+  :root[data-device="phone"] .termPop{max-width:calc(100vw - 20px);font-size:11.5px}
+  :root[data-device="phone"] footer{font-size:10.5px;line-height:1.65}
+  :root[data-device="tablet"] .shell{padding:26px 20px 68px}
+  :root[data-device="tablet"] .hero h1{font-size:25px}
+  :root[data-device="tablet"] .grid{grid-template-columns:1fr;gap:20px}
+  :root[data-device="tablet"] .results{position:static;top:auto}
+  :root[data-device="tablet"] .providers{grid-template-columns:repeat(3,1fr)}
+  :root[data-device="tablet"] .card{padding:20px}
+  :root[data-device="tablet"] .prov{min-height:76px}
+  :root[data-device="tablet"] .fieldgrid{grid-template-columns:1fr 1fr}
+  :root[data-device="tablet"] .scroll{max-height:320px}
+  :root[data-device="tablet"] .amount{font-size:43px}
+  :root[data-device="computer"] .grid{grid-template-columns:minmax(0,1.07fr) minmax(392px,.93fr)}
+  :root[data-device="computer"] .results{position:sticky;top:20px}
+  :root[data-device="computer"] .providers{grid-template-columns:repeat(4,1fr)}
+  :root[data-device="computer"] .fieldgrid{grid-template-columns:1fr 1fr}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hero">
+    <div>
+      <h1>API <em>cost calculator</em></h1>
+      <p>Paste all your prompts, pick an AI, and see what it'll cost before you make a single API call.</p>
+    </div>
+    <div class="pills">
+      <span class="pill" id="pricePill">Checking <span class="term" data-term="price">prices</span>…</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ LEFT: INPUTS ============ -->
+    <div>
+      <section class="card">
+        <div class="stephead">
+          <div class="stepnum">1</div>
+          <div><h2>Which AI are you using?</h2><p>Pick a <span class="term" data-term="provider">provider</span>, then choose the exact model. You can change both anytime.</p></div>
+        </div>
+
+        <div class="providers" id="providers"></div>
+
+        <div class="picker" id="picker">
+          <button class="pickbtn" id="modelBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="pickico" id="pickIco">—</span>
+            <span class="picktxt">
+              <span class="pickname" id="pickName">—</span>
+              <span class="pickmeta" id="pickMeta">—</span>
+            </span>
+            <span class="chevron">⌄</span>
+          </button>
+          <div class="panel" id="modelPanel" hidden>
+            <div class="phead">
+              <div class="searchwrap"><span>⌕</span><input id="modelSearch" type="text" placeholder="Search models, e.g. haiku, nemotron, qwen…" aria-label="Search models" autocomplete="off" /></div>
+              <div class="filters" id="filters">
+                <button class="chip on" data-f="all">All</button>
+                <button class="chip" data-f="budget">Budget</button>
+                <button class="chip" data-f="flagship">Flagship</button>
+                <button class="chip" data-f="new">New</button>
+              </div>
+            </div>
+            <div class="plist" id="modelList" role="listbox"></div>
+            <div class="pfoot"><span><span class="kbd">↑</span> <span class="kbd">↓</span> move · <span class="kbd">↵</span> select</span><span id="modelCount"></span></div>
+          </div>
+        </div>
+
+        <div class="fieldgrid" style="margin-top:14px">
+          <div class="fld"><label for="tier"><span class="term" data-term="tier">Pricing tier</span></label><select id="tier"></select></div>
+          <div class="fld"><span class="lbl">How <span class="term" data-term="token">tokens</span> are counted</span><div class="tag" style="padding:9px 10px">Quick length-based estimate</div></div>
+        </div>
+        <div class="metarow" id="modelMeta"></div>
+
+        <div class="extras" id="customBox" style="display:none">
+          <div class="fieldgrid">
+            <div class="fld"><label for="custName">Your model's name</label><input type="text" id="custName" value="My model" /></div>
+            <div class="fld"><label for="custOut">Output <span class="term" data-term="price">price</span> ($ / 1M tokens)</label><input type="number" id="custOut" value="2" min="0" step="0.01" /></div>
+            <div class="fld"><label for="custIn">Input <span class="term" data-term="price">price</span> ($ / 1M tokens)</label><input type="number" id="custIn" value="1" min="0" step="0.01" /></div>
+            <div class="fld"><label for="custCache"><span class="term" data-term="cache">Cached</span> input price (optional)</label><input type="number" id="custCache" value="" min="0" step="0.001" placeholder="same as input" /></div>
+          </div>
+          <p class="help">Don't see your model? Enter the prices from its <span class="term" data-term="price-source">pricing page</span> and the calculator will use them.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="stephead">
+          <div class="stepnum">2</div>
+          <div><h2>Paste all of your prompts</h2><p>Ready to paste all of your <span class="term" data-term="prompt">prompts</span>? Put them below — one <span class="term" data-term="prompt">prompt</span> per blank line. We'll <span class="term" data-term="estimate">estimate</span> the <span class="term" data-term="token">tokens</span> and do the rest.</p></div>
+          <div class="aside" id="promptCount">0 prompts</div>
+        </div>
+
+        <label class="promptlabel" for="prompts"><span class="spark">✦</span> Paste all of your <span class="term" data-term="prompt">prompts</span> here</label>
+        <textarea id="prompts" spellcheck="false" placeholder="Paste your first prompt here…&#10;&#10;Then leave a blank line and paste the next one.&#10;&#10;Tip: you can also drop in a .txt, .json or .csv file using the Import button below."></textarea>
+        <div class="underrow">
+          <div class="hintline" id="hintLine">Separate each prompt with a <b>blank line</b>.</div>
+          <div class="actions">
+            <button class="btn" id="example">✧ Load example</button>
+            <label class="btn file">↑ Import file<input type="file" id="file" accept=".txt,.json,.csv,.md,text/plain,application/json,text/csv" /></label>
+            <button class="btn soft" id="clear">Clear</button>
+          </div>
+        </div>
+
+        <div class="seg" id="sepSeg">
+          <button class="on" data-sep="blank">Blank line</button>
+          <button data-sep="line">Each line</button>
+          <button data-sep="dash">--- divider</button>
+          <button data-sep="custom">Custom</button>
+        </div>
+        <div class="customsep" id="customWrap" style="display:none"><input type="text" id="customSep" value="###" placeholder="Your delimiter, e.g. ###" aria-label="Custom prompt separator" /></div>
+
+        <div class="extras">
+          <details class="faq" id="replyBox">
+            <summary>Expected <span class="term" data-term="replies">replies</span>, repeats &amp; other settings <span class="dim" style="font-weight:400">(optional)</span></summary>
+            <div style="padding:4px 0 2px 23px">
+              <div class="fld" style="margin-bottom:13px"><label for="replies">Paste an expected reply for each prompt (optional)</label>
+                <textarea id="replies" class="small" spellcheck="false" placeholder="If you know roughly what the AI will answer, paste it here and we'll count those tokens too." style="min-height:86px;width:100%;background:var(--sunken);border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--text);outline:none;font-size:12.5px"></textarea>
+              </div>
+              <div class="fieldgrid">
+                <div class="fld"><label for="outTokens">Average reply length (tokens)</label><input type="number" id="outTokens" value="500" min="0" step="50" /></div>
+                <div class="fld"><label for="runs">How many times will you <span class="term" data-term="runs">run</span> this?</label><input type="number" id="runs" value="1" min="1" step="1" /></div>
+                <div class="fld"><label for="overhead">Chat <span class="term" data-term="overhead">overhead</span> (tokens / request)</label><input type="number" id="overhead" value="4" min="0" step="1" /></div>
+                <div class="fld"><label for="cachePct">Input served from <span class="term" data-term="cache">cache</span> (%)</label><input type="number" id="cachePct" value="0" min="0" max="100" step="5" /></div>
+              </div>
+              <p class="help">Not sure? Leave these as they are. A typical chat reply is 300–800 tokens.</p>
+            </div>
+          </details>
+          <details class="faq"><summary>What is a <span class="term" data-term="token">token</span>, anyway?</summary><p>A token is a chunk of text — roughly ¾ of a word in English. "hello world" is 2 tokens. We estimate tokens from your text length, so the count is close but not exact. The price check, on the other hand, is live.</p></details>
+          <details class="faq"><summary>Why do <span class="term" data-term="replies">replies</span> (output) cost more?</summary><p>Providers charge more for generated tokens than for tokens you send in. Output tokens usually cost 3–5× as much, which is why a long answer can dominate your bill.</p></details>
+          <details class="faq"><summary>Is this the exact amount I'll be billed?</summary><p>It's a close estimate from published list prices. Thinking tokens, tool calls, regional price changes and account discounts can change the final invoice. Use the source links to double-check current prices.</p></details>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ RIGHT: RESULTS ============ -->
+    <div class="results">
+      <section class="card">
+        <div class="resulthead"><div class="rk">✓</div><h2>Your <span class="term" data-term="estimate">estimate</span></h2><div class="live"><span class="term" data-term="live">live</span></div></div>
+        <div class="plain" id="plain">Add some <span class="term" data-term="prompt">prompts</span> on the left to see your <span class="term" data-term="estimate">estimated</span> spend.</div>
+
+        <div class="amountbox">
+          <div class="amtlabel">Estimated <span class="term" data-term="total">total</span></div>
+          <div class="amount"><span id="total">$0.00</span><span class="amtcur">USD</span></div>
+          <div class="amtsub" id="amtsub">—</div>
+        </div>
+
+        <div class="split">
+          <div class="splitbar"><i class="barin" id="barIn" style="width:50%"></i><i class="barout" id="barOut" style="width:50%"></i></div>
+          <div class="legend">
+            <span><i class="swatch" style="background:#fff"></i> <span class="term" data-term="input">Input</span> <b id="legIn" class="muted">—</b></span>
+            <span><i class="swatch" style="background:#888"></i> <span class="term" data-term="replies">Replies</span> <b id="legOut" class="muted">—</b></span>
+          </div>
+        </div>
+        <div class="warnbox" id="longWarn"></div>
+
+        <div class="sect">
+          <div class="secttitle">The breakdown <span><span class="term" data-term="per-1m">price per 1M tokens</span></span></div>
+          <table>
+            <thead><tr><th>What you pay for</th><th class="num"><span class="term" data-term="token">Tokens</span></th><th class="num"><span class="term" data-term="rate">Rate</span></th><th class="num"><span class="term" data-term="cost">Cost</span></th></tr></thead>
+            <tbody id="breakdown"></tbody>
+          </table>
+        </div>
+
+        <div class="sect">
+          <div class="secttitle"><span class="term" data-term="prompt">Prompt</span> by prompt <span id="perCount"></span></div>
+          <div class="scroll"><table>
+            <thead><tr><th>#</th><th class="num">In</th><th class="num">Out</th><th class="num">Cost</th></tr></thead>
+            <tbody id="perPrompt"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="resulthead"><div class="rk">‡</div><h2>Shop around</h2><div class="live" style="color:var(--muted)">same prompts</div></div>
+        <p class="help" style="margin:-4px 0 12px">Here's what the same prompts would cost on every model from <b id="cmpProvider">this provider</b>. <span class="term" data-term="cheapest">Cheapest</span> first.</p>
+        <div class="scroll" style="max-height:300px"><table>
+          <thead><tr><th>#</th><th>Model</th><th class="num">In / 1M</th><th class="num">Out / 1M</th><th class="num">Cost</th></tr></thead>
+          <tbody id="compare"></tbody>
+        </table></div>
+        <p class="cheapline" id="cheapest"></p>
+      </section>
+
+      <section class="card" style="box-shadow:none;background:rgba(8,8,8,.8)">
+        <div class="actionrow">
+          <button class="btn" id="copy">⧉ Copy summary</button>
+          <button class="btn" id="download">↓ Download CSV</button>
+        </div>
+        <p class="disclaimer">Everything runs in your browser — your prompts never leave your device. <span class="term" data-term="price">Prices</span> are checked <span class="term" data-term="live">live</span> when you're online; saved prices are used offline. Token counts are quick length-based estimates.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <b><span class="term" data-term="price-source">Price sources</span>:</b>
+    live check via <a href="https://openrouter.ai/api/v1/models" target="_blank" rel="noopener">OpenRouter's models API</a> ·
+    <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noopener">OpenAI</a> ·
+    <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noopener">Anthropic</a> ·
+    <a href="https://docs.x.ai/docs/models" target="_blank" rel="noopener">xAI</a> ·
+    <a href="https://api-docs.deepseek.com/quick_start/pricing" target="_blank" rel="noopener">DeepSeek</a> ·
+    <a href="https://docs.mistral.ai/inference/pricing" target="_blank" rel="noopener">Mistral</a> ·
+    <a href="https://build.nvidia.com/explore/discover" target="_blank" rel="noopener">NVIDIA</a>.
+    Live results refresh automatically every few minutes. Prices can change — check the <span class="term" data-term="price-source">source</span> for your model before budgeting.
+  </footer>
+</div>
+
+<script>
+/* =====================================================================
+   Catalog — USD per 1,000,000 tokens. price = { tier: [input, output, cached?] }
+   Providers with a `live` rule get their model list + prices refreshed
+   from OpenRouter's public models API. Others keep bundled fallback prices.
+   No Google / Gemini models are included, online or offline.
+   ===================================================================== */
+const M = (id, label, p, extra={}) => ({id, label, p, ...extra});
+const svg = (d,vb='0 0 24 24',wide=false) => `<svg class="${wide?'wide':''}" viewBox="${vb}" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+const LOGOS = {
+  openai: svg('M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z', '0 0 24 24', false),
+  anthropic: svg('M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z', '0 0 24 24', false),
+  xai: svg('M512,0.179564326 C452.932787,4.99539856 220.741262,33.7810453 59.7442917,195.629933 L0,195.629933 L6.67493256,188.977277 C40.3668707,156.428205 189.44779,18.4809495 512,0 L512,0.179564326 Z M155.916515,138.077541 L234.964646,195.630608 L188.158437,195.630608 L173.960029,185.302959 L94.6871046,185.302959 C100.267775,180.347389 105.917975,175.536955 111.626906,170.866932 L154.090494,170.866932 L132.116141,154.883007 C139.970392,149.038391 147.911726,143.440169 155.916515,138.077541 Z M196.353591,113.18088 L309.801117,195.629933 L262.972631,195.629933 L170.71167,128.470175 C179.213973,123.123073 187.770281,118.031142 196.353591,113.18088 Z M17.8389733,71.7703762 L64.6033294,71.7933281 L100.697109,98.0232208 C91.7141674,103.312942 83.3063716,108.54866 75.4588705,113.670294 L17.8389733,71.7703762 Z', '0 0 512 196', true),
+  deepseek: svg('M23.748 4.651c-.254-.124-.364.113-.512.233-.051.04-.094.09-.137.137-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.155-.708-.311-.955-.65-.172-.24-.219-.509-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.094.172.187.129.323-.082.28-.18.553-.266.833-.055.179-.137.218-.328.14a5.5 5.5 0 0 1-1.737-1.179c-.857-.828-1.631-1.743-2.597-2.46a12 12 0 0 0-.689-.47c-.985-.957.13-1.743.387-1.836.27-.098.094-.433-.778-.428-.872.003-1.67.295-2.687.685a3 3 0 0 1-.465.136 9.6 9.6 0 0 0-2.883-.101c-1.885.21-3.39 1.1-4.497 2.622C.082 8.776-.231 10.854.152 13.02c.403 2.284 1.568 4.175 3.36 5.653 1.857 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.132-.284 4.994-1.86.47.234.962.328 1.78.398.629.058 1.235-.031 1.705-.129.735-.155.684-.836.418-.961-2.155-1.004-1.682-.595-2.112-.926 1.095-1.295 2.768-3.598 3.284-6.733.05-.346.115-.834.108-1.114-.004-.171.035-.238.23-.257a4.2 4.2 0 0 0 1.545-.475c1.397-.763 1.96-2.016 2.093-3.517.02-.23-.004-.467-.247-.588M11.58 18.168c-2.088-1.642-3.101-2.183-3.52-2.16-.39.024-.32.472-.234.763.09.288.207.487.371.74.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.168-1.361-.801-2.5-1.86-3.301-3.306-.775-1.393-1.225-2.888-1.299-4.482-.02-.385.094-.522.477-.592a4.7 4.7 0 0 1 1.53-.038c2.131.311 3.946 1.264 5.467 2.774.868.86 1.525 1.887 2.202 2.89.72 1.066 1.494 2.082 2.48 2.915.348.291.626.513.892.677-.802.09-2.14.109-3.055-.615zm1.001-6.44a.306.306 0 0 1 .415-.287.3.3 0 0 1 .113.074.3.3 0 0 1 .086.214c0 .17-.136.307-.308.307a.303.303 0 0 1-.306-.307m3.11 1.596c-.2.081-.4.151-.591.16a1.25 1.25 0 0 1-.798-.254c-.274-.23-.47-.358-.551-.758a1.7 1.7 0 0 1 .015-.588c.07-.327-.007-.537-.238-.727-.188-.156-.426-.199-.689-.199a.6.6 0 0 1-.254-.078.253.253 0 0 1-.114-.358 1 1 0 0 1 .192-.21c.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.392.451.462.576.685.915.176.264.336.536.446.848.066.194-.02.353-.25.45', '0 0 24 24', false),
+  mistral: svg('M17.143 3.429v3.428h-3.429v3.429h-3.428V6.857H6.857V3.43H3.43v13.714H0v3.428h10.286v-3.428H6.857v-3.429h3.429v3.429h3.429v-3.429h3.428v3.429h-3.428v3.428H24v-3.428h-3.43V3.429z', '0 0 24 24', false),
+  openrouter: svg('M16.778 1.844v1.919q-.569-.026-1.138-.032-.708-.008-1.415.037c-1.93.126-4.023.728-6.149 2.237-2.911 2.066-2.731 1.95-4.14 2.75-.396.223-1.342.574-2.185.798-.841.225-1.753.333-1.751.333v4.229s.768.108 1.61.333c.842.224 1.789.575 2.185.799 1.41.798 1.228.683 4.14 2.75 2.126 1.509 4.22 2.11 6.148 2.236.88.058 1.716.041 2.555.005v1.918l7.222-4.168-7.222-4.17v2.176c-.86.038-1.611.065-2.278.021-1.364-.09-2.417-.357-3.979-1.465-2.244-1.593-2.866-2.027-3.68-2.508.889-.518 1.449-.906 3.822-2.59 1.56-1.109 2.614-1.377 3.978-1.466.667-.044 1.418-.017 2.278.02v2.176L24 6.014Z', '0 0 24 24', false),
+  nvidia: svg('M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851c-.398 0-.787-.062-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964c-.37 0-.733-.035-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z', '0 0 24 24', false),
+  qwen: svg('M23.919 14.545 20.817 9.17l1.47-2.544a.56.56 0 0 0 0-.566l-1.633-2.83a.57.57 0 0 0-.49-.283h-6.207L12.487.402a.57.57 0 0 0-.49-.284H8.732a.56.56 0 0 0-.49.284L5.139 5.775h-2.94a.56.56 0 0 0-.49.284L.077 8.887a.56.56 0 0 0 0 .567L3.18 14.83l-1.47 2.545a.56.56 0 0 0 0 .566l1.634 2.83a.57.57 0 0 0 .49.283h6.205l1.47 2.545a.57.57 0 0 0 .49.284h3.266a.57.57 0 0 0 .49-.284l3.104-5.375h2.94a.57.57 0 0 0 .49-.283l1.634-2.828a.55.55 0 0 0-.004-.568M8.733.686l1.634 2.828-1.634 2.828H21.8L20.164 9.17H7.425L5.63 6.06Zm1.306 19.801-6.205-.002 1.634-2.83h3.265L2.201 6.344h3.267q3.182 5.517 6.367 11.032zm10.124-5.66L18.53 12l-6.532 11.315-1.634-2.83c2.129-3.673 4.25-7.351 6.373-11.028h3.592l3.102 5.374z', '0 0 24 24', false),
+  meta: svg('M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z', '0 0 24 24', false),
+  fireworks: svg('M81.7059 54.1818C78.5142 54.6039 55.4095 56.7847 55.4095 56.7847C55.4095 56.7847 73.5555 41.8118 75.8594 40.0496L72.5652 32.0864L53.2692 51.3455C47.3171 57.2857 49.3284 62.1476 57.7376 62.1466L85 62.1447L81.7059 54.1818ZM12.4348 32.0864L9.14057 40.0496C11.4445 41.8118 29.5906 56.7847 29.5906 56.7847C29.5906 56.7847 6.48583 54.6039 3.29425 54.1818L3.8147e-06 62.1447L27.2625 62.1466C35.6717 62.1476 37.683 57.2857 31.7308 51.3455L12.4348 32.0864ZM58.7645 22.8534L48.3445 48.046C45.1308 55.8169 39.8694 55.8169 36.6556 48.046L26.2356 22.8534H34.8532C35.6009 25.6561 42.5 48.1476 42.5 48.1476C42.5 48.1476 49.3169 25.9641 50.147 22.8534H58.7645Z', '0 0 86 64', true),
+  custom: svg('M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z', '0 0 24 24', false)
+};
+
+
+const CATALOG = {
+  openai: {
+    name:'OpenAI', logo:'openai',
+    doc:'https://developers.openai.com/api/docs/pricing', alias:'openai',
+    tiers:[{id:'standard',label:'Standard'},{id:'batch',label:'Batch · 50% off'},{id:'fast',label:'Fast · 2×'}],
+    models:[
+      M('gpt-6.2-astra','GPT-6.2 Astra',{standard:[8,40,.4],batch:[4,20],fast:[16,80]},{badge:'new',flagship:true,desc:'Most capable flagship',long:{standard:[16,60,.8]},longAt:272000}),
+      M('gpt-6.2-sol','GPT-6.2 Sol',{standard:[2,10,.1],batch:[1,5],fast:[4,20]},{badge:'new',desc:'Strong all-rounder',long:{standard:[4,15,.2]},longAt:272000}),
+      M('gpt-6-astra','GPT-6 Astra',{standard:[10,50,1],batch:[5,25],fast:[20,100]},{flagship:true,desc:'Previous flagship',long:{standard:[20,75,2]},longAt:272000}),
+      M('gpt-6.1-sol','GPT-6.1 Sol',{standard:[2,10,.1],batch:[1,5],fast:[4,20]},{desc:'Balanced performance',long:{standard:[4,15,.2]},longAt:272000}),
+      M('gpt-6.1-terra','GPT-6.1 Terra',{standard:[1,5,.05],batch:[.5,2.5],fast:[2,10]},{badge:'cheap',desc:'Good value, mid-size',long:{standard:[2,7.5,.1]},longAt:272000}),
+      M('gpt-6-luna','GPT-6 Luna',{standard:[.10,.50,.01],batch:[.05,.25],fast:[.20,1]},{badge:'cheap',desc:'Tiny price, big volume',long:{standard:[.20,.75,.02]},longAt:272000}),
+      M('gpt-6-sol','GPT-6 Sol',{standard:[2,10,.2],batch:[1,5],fast:[4,20]},{desc:'General purpose',long:{standard:[4,15,.4]},longAt:272000}),
+      M('gpt-5.6-sol','GPT-5.6 Sol',{standard:[4,20,.4],batch:[2,10],fast:[8,40]},{desc:'Reasoning model',long:{standard:[8,30,.8]},longAt:272000}),
+      M('gpt-5.6-terra','GPT-5.6 Terra',{standard:[2,12,.2],batch:[1,6],fast:[4,24]},{desc:'Efficient reasoning',long:{standard:[4,18,.4]},longAt:272000}),
+      M('gpt-5.6-luna','GPT-5.6 Luna',{standard:[.20,1.20,.02],batch:[.10,.60],fast:[.40,2.40]},{badge:'cheap',desc:'Cheap reasoning',long:{standard:[.40,1.80,.04]},longAt:272000}),
+      M('gpt-5.5','GPT-5.5',{standard:[5,30,.5],batch:[2.5,15],fast:[12.5,75]},{flagship:true,desc:'Deep reasoning',long:{standard:[10,45,1]},longAt:272000}),
+      M('gpt-5.5-pro','GPT-5.5 Pro',{standard:[30,180],batch:[15,90]},{flagship:true,desc:'Maximum reasoning',long:{standard:[60,270]},longAt:272000}),
+      M('gpt-5.4','GPT-5.4',{standard:[2.5,15,.25],batch:[1.25,7.5],fast:[5,30]},{desc:'Balanced reasoning',long:{standard:[5,22.5,.5]},longAt:272000}),
+      M('gpt-5.4-pro','GPT-5.4 Pro',{standard:[30,180],batch:[15,90]},{flagship:true,desc:'Heavy reasoning',long:{standard:[60,270]},longAt:272000}),
+      M('gpt-5.4-mini','GPT-5.4 Mini',{standard:[.75,4.5,.075],batch:[.375,2.25],fast:[1.5,9]},{desc:'Small but smart'}),
+      M('gpt-5.4-nano','GPT-5.4 Nano',{standard:[.20,1.25,.02],batch:[.10,.625]},{badge:'cheap',desc:'Ultra low cost'}),
+      M('gpt-5.2','GPT-5.2',{standard:[1.75,14,.175],batch:[.875,7],fast:[3.5,28]},{desc:'Earlier GPT-5'}),
+      M('gpt-5.2-pro','GPT-5.2 Pro',{standard:[21,168],batch:[10.5,84]},{flagship:true,desc:'Earlier pro tier'}),
+      M('gpt-5.1','GPT-5.1',{standard:[1.25,10,.125],batch:[.625,5],fast:[2.5,20]},{desc:'Reliable workhorse'}),
+      M('gpt-5','GPT-5',{standard:[1.25,10,.125],batch:[.625,5],fast:[2.5,20]},{badge:'pop',desc:'Popular all-rounder'}),
+      M('gpt-5-mini','GPT-5 Mini',{standard:[.25,2,.025],batch:[.125,1],fast:[.45,3.6]},{badge:'pop',desc:'Great default choice'}),
+      M('gpt-5-nano','GPT-5 Nano',{standard:[.05,.40,.005],batch:[.025,.20]},{badge:'cheap',desc:'Pennies per 1M'}),
+      M('gpt-5-pro','GPT-5 Pro',{standard:[15,120],batch:[7.5,60]},{flagship:true,desc:'High-end reasoning'}),
+      M('gpt-4.1','GPT-4.1',{standard:[2,8,.5],batch:[1,4],fast:[3.5,14]},{desc:'Long-context classic'}),
+      M('gpt-4.1-mini','GPT-4.1 Mini',{standard:[.40,1.60,.10],batch:[.20,.80],fast:[.70,2.80]},{desc:'Solid budget pick'}),
+      M('gpt-4.1-nano','GPT-4.1 Nano',{standard:[.10,.40],batch:[.05,.20]},{badge:'cheap',desc:'Very small, very cheap'}),
+      M('gpt-4o','GPT-4o',{standard:[2.5,10,1.25],batch:[1.25,5],fast:[4.25,17]},{desc:'Multimodal classic'}),
+      M('gpt-4o-mini','GPT-4o Mini',{standard:[.15,.60,.075],batch:[.075,.30],fast:[.25,1]},{badge:'pop',desc:'Beloved cheap model'}),
+      M('o3','o3',{standard:[2,8,.5],batch:[1,4],fast:[3.5,14]},{desc:'Reasoning specialist'}),
+      M('o3-pro','o3 Pro',{standard:[20,80],batch:[10,40]},{flagship:true,desc:'Deep reasoning'}),
+      M('text-embedding-3-small','text-embedding-3-small',{standard:[.02,0]},{badge:'cheap',desc:'Embeddings · input only'}),
+      M('text-embedding-3-large','text-embedding-3-large',{standard:[.13,0]},{desc:'Embeddings · input only'}),
+      M('omni-moderation-latest','omni-moderation-latest',{standard:[0,0]},{badge:'cheap',desc:'Free moderation'})
+    ]
+  },
+  anthropic: {
+    name:'Anthropic', logo:'anthropic',
+    doc:'https://platform.claude.com/docs/en/about-claude/pricing', alias:'anthropic', encScale:1.3,
+    tiers:[{id:'standard',label:'Standard'},{id:'batch',label:'Batch · 50% off'},{id:'fast',label:'Fast · 2×'}],
+    models:[
+      M('claude-fable-5-2','Claude Fable 5.2',{standard:[8,40,.20],batch:[4,20]},{badge:'new',flagship:true,desc:'Top-tier Claude'}),
+      M('claude-mythos-5-2','Claude Mythos 5.2',{standard:[8,40,.20],batch:[4,20]},{badge:'new',flagship:true,desc:'Limited access'}),
+      M('claude-fable-5-1','Claude Fable 5.1',{standard:[10,50,.25],batch:[5,25]},{desc:'Previous flagship'}),
+      M('claude-mythos-5-1','Claude Mythos 5.1',{standard:[10,50,.25],batch:[5,25]},{desc:'Limited access'}),
+      M('claude-fable-5','Claude Fable 5',{standard:[10,50,1],batch:[5,25]},{desc:'Frontier tier'}),
+      M('claude-opus-5-5','Claude Opus 5.5',{standard:[4,20,.20],batch:[2,10],fast:[8,40]},{badge:'new',flagship:true,desc:'Best coding Claude'}),
+      M('claude-opus-5','Claude Opus 5',{standard:[5,25,.50],batch:[2.5,12.5],fast:[10,50]},{desc:'Powerful flagship'}),
+      M('claude-opus-4-8','Claude Opus 4.8',{standard:[5,25,.50],batch:[2.5,12.5],fast:[10,50]},{desc:'Strong all-rounder'}),
+      M('claude-opus-4-7','Claude Opus 4.7',{standard:[5,25,.50],batch:[2.5,12.5]},{desc:'New model'}),
+      M('claude-opus-4-6','Claude Opus 4.6',{standard:[5,25,.50],batch:[2.5,12.5]},{desc:'1M context'}),
+      M('claude-opus-4-5','Claude Opus 4.5',{standard:[5,25,.50],batch:[2.5,12.5]},{desc:'Earlier Opus'}),
+      M('claude-sonnet-5-5','Claude Sonnet 5.5',{standard:[2,10,.10],batch:[1,5]},{badge:'new',desc:'Sweet spot for most'}),
+      M('claude-sonnet-5','Claude Sonnet 5',{standard:[2,10,.20],batch:[1,5]},{badge:'pop',desc:'Popular default'}),
+      M('claude-sonnet-4-6','Claude Sonnet 4.6',{standard:[3,15,.30],batch:[1.5,7.5]},{desc:'Reliable mid-tier'}),
+      M('claude-sonnet-4-5','Claude Sonnet 4.5',{standard:[3,15,.30],batch:[1.5,7.5]},{desc:'Earlier Sonnet'}),
+      M('claude-haiku-5-5','Claude Haiku 5.5',{standard:[.10,.50,.01],batch:[.05,.25]},{badge:'cheap',desc:'Extremely cheap',long:{standard:[.50,2.50,.05]},longAt:100000}),
+      M('claude-haiku-4-5','Claude Haiku 4.5',{standard:[1,5,.10],batch:[.5,2.5]},{badge:'cheap',desc:'Fast & affordable'})
+    ]
+  },
+  xai: {
+    name:'xAI Grok', logo:'xai',
+    doc:'https://docs.x.ai/docs/models', alias:'x-ai',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('grok-4.7','Grok 4.7',{standard:[2,6,.5]},{badge:'new',flagship:true,desc:'Flagship Grok',long:{standard:[4,12,1]},longAt:200000}),
+      M('grok-4.6','Grok 4.6',{standard:[2,6,.5]},{desc:'Earlier flagship',long:{standard:[4,12,1]},longAt:200000}),
+      M('grok-4.5','Grok 4.5',{standard:[2,6,.3]},{desc:'Solid performer',long:{standard:[4,12,.6]},longAt:200000}),
+      M('grok-4.3','Grok 4.3',{standard:[1.25,2.5,.2]},{badge:'cheap',desc:'Great value',long:{standard:[2.5,5,.4]},longAt:200000}),
+      M('grok-4-20-reasoning','Grok 4.20 Reasoning',{standard:[1.25,2.5,.2]},{desc:'Reasoning variant',long:{standard:[2.5,5,.4]},longAt:200000}),
+      M('grok-4-20-nonreasoning','Grok 4.20 Non-reasoning',{standard:[1.25,2.5,.2]},{desc:'Faster variant',long:{standard:[2.5,5,.4]},longAt:200000}),
+      M('grok-4-20-multiagent','Grok 4.20 Multi-agent',{standard:[1.25,2.5,.2]},{desc:'Agent workflows',long:{standard:[2.5,5,.4]},longAt:200000}),
+      M('grok-build-0-1','Grok Build 0.1',{standard:[1,2,.2]},{badge:'cheap',desc:'Budget build model',long:{standard:[2,4,.4]},longAt:200000})
+    ]
+  },
+  deepseek: {
+    name:'DeepSeek', logo:'deepseek',
+    doc:'https://api-docs.deepseek.com/quick_start/pricing', alias:'deepseek',
+    tiers:[{id:'peak',label:'Peak hours'},{id:'offpeak',label:'Off-peak · 50% off'}],
+    models:[
+      M('deepseek-flash','DeepSeek Flash (V4.1)',{peak:[.30,1.20,.006],offpeak:[.15,.60,.003]},{badge:'pop',desc:'Cheap & fast',note:'Peak: 01–04 & 06–10 UTC, Mon–Fri.'}),
+      M('deepseek-v4-pro','DeepSeek V4 Pro',{peak:[1.32,3.96,.044],offpeak:[.66,1.98,.022]},{desc:'Bigger DeepSeek',note:'Peak: 01–04 & 06–10 UTC, Mon–Fri.'})
+    ]
+  },
+  mistral: {
+    name:'Mistral', logo:'mistral',
+    doc:'https://docs.mistral.ai/inference/pricing', alias:'mistralai',
+    tiers:[{id:'standard',label:'Standard'},{id:'batch',label:'Batch · 50% off'}],
+    models:[
+      M('mistral-large-4','Mistral Large 4',{standard:[.7,2.1,.07],batch:[.35,1.05]},{badge:'new',flagship:true,desc:'Most capable Mistral',note:'Regional pricing may differ.'}),
+      M('mistral-small-4','Mistral Small 4',{standard:[.15,.60,.015],batch:[.075,.30]},{badge:'pop',desc:'Efficient hybrid model'}),
+      M('mistral-medium-3-5','Mistral Medium 3.5',{standard:[1.5,7.5,.15],batch:[.75,3.75]},{desc:'Mid-tier'}),
+      M('ministral-14b','Ministral 3 14B',{standard:[.2,.2],batch:[.1,.1]},{badge:'cheap',desc:'Small & speedy'}),
+      M('ministral-8b','Ministral 3 8B',{standard:[.15,.15],batch:[.075,.075]},{badge:'cheap',desc:'Tiny & cheap'}),
+      M('ministral-3b','Ministral 3 3B',{standard:[.1,.1],batch:[.05,.05]},{badge:'cheap',desc:'Smallest model'}),
+      M('codestral','Codestral',{standard:[.3,.9],batch:[.15,.45]},{desc:'Code specialist'}),
+      M('zai-glm-5-3','Z.ai GLM 5.3',{standard:[1.4,4.4,.14],batch:[.7,2.2]},{desc:'1M context, third-party'}),
+      M('zai-glm-5-3-flash','Z.ai GLM 5.3 Flash',{standard:[.15,.5,.03],batch:[.075,.25]},{badge:'cheap',desc:'Fast third-party model'}),
+      M('deepseek-v4-1-flash-mistral','DeepSeek V4.1 Flash',{standard:[.3,1.2,.007],batch:[.15,.6]},{desc:'Via Mistral API'}),
+      M('mistral-embed','Mistral Embed',{standard:[.1,0]},{desc:'Embeddings · input only'}),
+      M('mistral-moderation-2','Mistral Moderation 2',{standard:[0,0]},{badge:'cheap',desc:'Free moderation'})
+    ]
+  },
+  openrouter: {
+    name:'OpenRouter', logo:'openrouter', live:'all', cap:120,
+    doc:'https://openrouter.ai/api/v1/models',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('openai/gpt-6.2-astra','GPT-6.2 Astra',{standard:[8,40,.4]},{desc:'Via OpenRouter',flagship:true}),
+      M('anthropic/claude-fable-5.2','Claude Fable 5.2',{standard:[8,40,.2]},{desc:'Via OpenRouter',flagship:true}),
+      M('qwen/qwen4-max','Qwen4 Max',{standard:[1.425,4.275,.07125]},{desc:'Via OpenRouter'}),
+      M('qwen/qwen3.8-flash','Qwen3.8 Flash',{standard:[.15,.47,.016]},{badge:'cheap',desc:'Via OpenRouter'}),
+      M('meta-llama/llama-4-maverick','Llama 4 Maverick',{standard:[.35,1,.17]},{desc:'Via OpenRouter'}),
+      M('nvidia/nemotron-3.5-super-vl','Nemotron 3.5 Super VL',{standard:[.15,.5,.02]},{desc:'Via OpenRouter'}),
+      M('deepseek/deepseek-v4.1-flash-1017','DeepSeek V4.1 Flash',{standard:[.3,1.2,.006]},{badge:'cheap',desc:'Via OpenRouter'}),
+      M('mistralai/mistral-large-4-0','Mistral Large 4',{standard:[.7,2.1,.07]},{desc:'Via OpenRouter'}),
+      M('fireworks/ember-1','Ember 1',{standard:[3,15,.3]},{desc:'Via OpenRouter'})
+    ]
+  },
+  nvidia: {
+    name:'NVIDIA', logo:'nvidia', live:'nvidia/', cap:40,
+    doc:'https://build.nvidia.com/explore/discover',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('nvidia/nemotron-3.5-super-vl','Nemotron 3.5 Super VL',{standard:[.15,.5,.02]},{badge:'new',desc:'NVIDIA multimodal model'}),
+      M('nvidia/nemotron-3.5-lightning','Nemotron 3.5 Lightning',{standard:[.07,.2,.04]},{badge:'cheap',desc:'Fast and inexpensive'}),
+      M('nvidia/nemotron-3.5-content-safety','Nemotron 3.5 Content Safety',{standard:[.2,.2,0]},{desc:'Safety classifier'}),
+      M('nvidia/nemotron-3.5-super-vl:free','Nemotron 3.5 Super VL (free)',{standard:[0,0,0]},{badge:'cheap',desc:'Free tier'})
+    ]
+  },
+  qwen: {
+    name:'Qwen', logo:'qwen', live:'qwen/', cap:40,
+    doc:'https://openrouter.ai/qwen',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('qwen/qwen4-max','Qwen4 Max',{standard:[1.425,4.275,.07125]},{badge:'new',flagship:true,desc:'Top Qwen model'}),
+      M('qwen/qwen3.8-max-prime','Qwen3.8 Max Prime',{standard:[4,12,.5]},{desc:'High-end reasoning'}),
+      M('qwen/qwen3.8-flash','Qwen3.8 Flash',{standard:[.15,.47,.016]},{badge:'cheap',desc:'Fast and cheap'}),
+      M('qwen/qwen3.8-omni-flash','Qwen3.8 Omni Flash',{standard:[.15,.47,.016]},{desc:'Multimodal flash'})
+    ]
+  },
+  meta: {
+    name:'Meta Llama', logo:'meta', live:'meta-llama/', cap:30,
+    doc:'https://openrouter.ai/meta-llama',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('meta-llama/llama-4-maverick','Llama 4 Maverick',{standard:[.35,1,.17]},{desc:'Large open model'}),
+      M('meta-llama/llama-4-scout','Llama 4 Scout',{standard:[.1,.3,0]},{badge:'cheap',desc:'Efficient open model'}),
+      M('meta-llama/llama-3.3-70b-instruct','Llama 3.3 70B',{standard:[.71,.71,.71]},{desc:'Open workhorse'}),
+      M('meta-llama/llama-3.2-1b-instruct','Llama 3.2 1B',{standard:[.027,.201,0]},{badge:'cheap',desc:'Tiny open model'})
+    ]
+  },
+  fireworks: {
+    name:'Fireworks', logo:'fireworks', live:'fireworks/', cap:20,
+    doc:'https://fireworks.ai/pricing',
+    tiers:[{id:'standard',label:'Standard'}],
+    models:[
+      M('fireworks/ember-1','Ember 1',{standard:[3,15,.3]},{desc:'Fireworks hosted model'})
+    ]
+  },
+  custom: {
+    name:'Custom', logo:'custom',
+    doc:'',
+    tiers:[{id:'standard',label:'Your prices'}],
+    models:[M('custom','My own model',{standard:[0,0]},{custom:true,desc:'Enter prices on the left'})]
+  }
+};
+
+const TIER_MULT = {batch:.5, flex:.5, fast:2, priority:1.8, offpeak:.5};
+const $ = id => document.getElementById(id);
+const state = {provider:'openai', model:'', tier:'standard', sep:'blank', filter:'all', summary:null, kbIndex:0};
+
+/* ---------- live price + model checking ---------- */
+const LIVE = {url:'https://openrouter.ai/api/v1/models', every:180000, lastCheck:null, ok:false, count:0, busy:false};
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n=Number(v); return Number.isFinite(n)&&n>=0 ? n : 0; };
+const round = n => Math.round(n*1e6)/1e6;
+const stripTags = s => String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+const trunc = (s,n) => s.length>n ? s.slice(0,n-1)+'…' : s;
+
+/* ---------- plain-language word explainers ---------- */
+const HINT = 'Click on this to understand what this is.';
+const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>';
+const DEFS = {
+  prompt:{title:'Prompt', text:'The text you send to an AI — your question, instructions, or anything you want it to work with.'},
+  token:{title:'Token', text:'A small chunk of text that the AI reads or writes. In English, one token is roughly three-quarters of a word. We estimate tokens from text length, so the count is close but not exact.'},
+  input:{title:'Input', text:'Text that goes into the model: your prompt plus any system instructions or chat messages. Providers usually charge a lower rate for input tokens.'},
+  replies:{title:'Replies', text:'The answers the AI generates back to you. These are also called output tokens, and they usually cost more than input tokens.'},
+  output:{title:'Output', text:'Text the model generates — its reply. You are charged an output rate for each output token.'},
+  cache:{title:'Cache / cached', text:'Text the provider has seen before in the same conversation and can reuse instead of reading again. Cached input is often charged at a lower price.'},
+  context:{title:'Context', text:'The amount of text a model can keep in mind for one request. If your prompt and reply together are larger than this, the model may not use all of it.'},
+  'long-context':{title:'Long context', text:'A request that is bigger than the model’s normal size limit. Some models charge a higher price once you cross that limit.'},
+  live:{title:'Live', text:'Checked from the internet recently, not just taken from a saved list. Live prices can change, so the pill shows when they were last checked.'},
+  price:{title:'Price', text:'The published rate a provider charges, shown per one million tokens. This calculator uses those rates for an estimate; your final bill can differ.'},
+  'price-source':{title:'Price source', text:'The website where the price was checked or published. Open the source link to confirm the current price for your model.'},
+  estimate:{title:'Estimate', text:'A careful guess, not a final invoice. It uses your text length and published prices, so real billing can change with thinking tokens, tool calls, or discounts.'},
+  tier:{title:'Pricing tier', text:'A pricing mode for the same model, such as Standard, Batch, or Fast. Batch is usually cheaper but slower; Fast can cost more.'},
+  'per-1m':{title:'Price per 1M tokens', text:'The price for one million tokens. Single tokens cost a tiny fraction of a cent, so providers show rates per million to make them easier to compare.'},
+  runs:{title:'Runs', text:'How many times you will send the whole set of prompts. Three runs means every prompt is sent three times.'},
+  overhead:{title:'Overhead', text:'Extra hidden tokens an API adds around your message, like chat roles and formatting. Four tokens per request is a typical default.'},
+  rate:{title:'Rate', text:'The price for one group of tokens — input, cached input, or output — per one million tokens.'},
+  cost:{title:'Cost', text:'The estimated dollars for that row or total. It is calculated from the number of tokens and the rate.'},
+  total:{title:'Total', text:'All of the input and output costs added together, multiplied by the number of runs.'},
+  cheapest:{title:'Cheapest', text:'The model with the lowest estimated cost across all providers for your pasted prompts.'},
+  provider:{title:'Provider', text:'The company or service that runs the AI model, such as OpenAI, Anthropic, NVIDIA, or OpenRouter.'}
+};
+const term = (word,key) => `<span class="term" data-term="${esc(key)}">${esc(word)}</span>`;
+
+function decorateTerms(root){
+  const scope = root && root.querySelectorAll ? root : document;
+  scope.querySelectorAll('.term:not([data-done])').forEach(el=>{
+    const key = el.dataset.term || '';
+    const label = el.textContent.trim() || key;
+    el.dataset.done = '1';
+    el.dataset.hint = HINT;
+    el.innerHTML = `<span class="tw">${esc(label)}</span>` +
+      `<span role="button" tabindex="0" class="tbtn i" data-key="${esc(key)}" aria-label="Explain ${esc(label)}" aria-expanded="false"></span>` +
+      `<span role="button" tabindex="0" class="tbtn eye" data-key="${esc(key)}" aria-label="Show plain meaning of ${esc(label)}" aria-expanded="false">${EYE_SVG}</span>`;
+  });
+}
+
+let termTip=null, termPop=null, activeTermBtn=null;
+function termTipEl(){
+  if(!termTip){
+    termTip=document.createElement('div');
+    termTip.className='termTip';
+    termTip.textContent=HINT;
+    termTip.hidden=true;
+    document.body.appendChild(termTip);
+  }
+  return termTip;
+}
+function showTermTip(target){
+  const tip=termTipEl(), r=target.getBoundingClientRect();
+  tip.hidden=false;
+  const w=tip.offsetWidth, h=tip.offsetHeight;
+  let left=r.left+r.width/2-w/2;
+  left=Math.min(Math.max(8,left),Math.max(8,window.innerWidth-w-8));
+  let top=r.top-h-7;
+  if(top<8) top=r.bottom+7;
+  tip.style.left=left+'px';
+  tip.style.top=top+'px';
+}
+function hideTermTip(){ if(termTip) termTip.hidden=true; }
+function termPopEl(){
+  if(!termPop){
+    termPop=document.createElement('div');
+    termPop.className='termPop';
+    termPop.hidden=true;
+    termPop.innerHTML='<button type="button" class="popClose" aria-label="Close explanation">×</button><h3></h3><p></p>';
+    termPop.querySelector('.popClose').onclick=closeTermPop;
+    document.body.appendChild(termPop);
+  }
+  return termPop;
+}
+function closeTermPop(){
+  if(activeTermBtn){ activeTermBtn.setAttribute('aria-expanded','false'); activeTermBtn=null; }
+  if(termPop) termPop.hidden=true;
+}
+function showTermPop(btn){
+  const pop=termPopEl();
+  const key=btn.dataset.key||'';
+  const label=(btn.closest('.term')||{}).textContent||key;
+  const d=DEFS[key]||{title:label.trim()||'Word',text:'This word is used in the calculator. Check the provider’s price page for exact details.'};
+  pop.querySelector('h3').textContent=d.title;
+  pop.querySelector('p').textContent=d.text;
+  pop.hidden=false;
+  if(activeTermBtn && activeTermBtn!==btn) activeTermBtn.setAttribute('aria-expanded','false');
+  activeTermBtn=btn;
+  btn.setAttribute('aria-expanded','true');
+  const r=btn.getBoundingClientRect(), w=pop.offsetWidth, h=pop.offsetHeight;
+  let left=Math.min(Math.max(8,r.left-12),Math.max(8,window.innerWidth-w-8));
+  let top=r.bottom+8;
+  if(top+h>window.innerHeight-8) top=Math.max(8,r.top-h-8);
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+document.addEventListener('mouseover',e=>{
+  const t=e.target && e.target.closest ? e.target.closest('.term') : null;
+  if(t) showTermTip(t.querySelector('.tbtn')||t);
+});
+document.addEventListener('mouseout',e=>{
+  const t=e.target && e.target.closest ? e.target.closest('.term') : null;
+  if(t && (!e.relatedTarget || !t.contains(e.relatedTarget))) hideTermTip();
+});
+document.addEventListener('focusin',e=>{
+  if(e.target && e.target.classList && e.target.classList.contains('tbtn')) showTermTip(e.target);
+});
+document.addEventListener('focusout',()=>hideTermTip());
+function toggleTerm(btn){
+  hideTermTip();
+  if(activeTermBtn===btn && termPop && !termPop.hidden) closeTermPop();
+  else showTermPop(btn);
+}
+document.addEventListener('click',e=>{
+  const btn=e.target && e.target.closest ? e.target.closest('.tbtn') : null;
+  if(btn){
+    e.preventDefault(); e.stopPropagation(); toggleTerm(btn);
+    return;
+  }
+  if(termPop && !termPop.hidden && (!e.target || !e.target.closest || !termPop.contains(e.target))) closeTermPop();
+},true);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeTermPop(); hideTermTip(); return; }
+  const btn=e.target && e.target.classList && e.target.classList.contains('tbtn') ? e.target : null;
+  if(btn && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); e.stopPropagation(); toggleTerm(btn); }
+});
+window.addEventListener('scroll',()=>{ hideTermTip(); if(termPop && !termPop.hidden) closeTermPop(); },true);
+window.addEventListener('resize',()=>{ hideTermTip(); if(termPop && !termPop.hidden) closeTermPop(); });
+
+function liveRates(item){
+  const pr=item.pricing||{};
+  const i=num(pr.prompt)*1e6, o=num(pr.completion)*1e6, c=num(pr.input_cache_read)*1e6;
+  return {in:round(i), out:round(o), cache:round(c>0&&c<i ? c : (i?i*.1:0))};
+}
+function usableLive(item){
+  if(!item || !item.id) return false;
+  const id=item.id.toLowerCase();
+  if(id.startsWith('google/') || id.includes('gemini')) return false;      /* no Google / Gemini */
+  if(id.endsWith(':batch')) return false;                                   /* batch is a tier */
+  const out=(item.architecture&&item.architecture.output_modalities)||[];
+  if(out.length && !out.includes('text')) return false;
+  const r=liveRates(item);
+  return r.in>0 || r.out>0;
+}
+function liveModel(item){
+  const r=liveRates(item);
+  const label=trunc(stripTags(item.name||item.id).replace(/^[^:]+:\s*/,''),58) || item.id;
+  const extra={desc:trunc(stripTags(item.description||'Live from OpenRouter'),96), live:true, context:item.context_length||0};
+  const age=(Date.now()/1000)-(item.created||0);
+  if(age < 45*86400) extra.badge='new';
+  else if(r.in<=1 && r.out<=1) extra.badge='cheap';
+  return M(item.id, label, {standard:[r.in,r.out,r.cache]}, extra);
+}
+function rescale(prices, oldBase, next){
+  const out={};
+  for(const t of Object.keys(prices)){
+    const old=prices[t]||[];
+    const fi=oldBase[0]?old[0]/oldBase[0]:1;
+    const fo=oldBase[1]?old[1]/oldBase[1]:1;
+    const fc=(oldBase[2]!=null&&old[2]!=null)?old[2]/oldBase[2]:null;
+    out[t]=[round(next.in*fi),round(next.out*fo), fc!=null?round(next.cache*fc):(old[2]!=null?next.cache:null)];
+  }
+  return out;
+}
+function applyLive(data){
+  const list=data.filter(usableLive).sort((a,b)=>{
+    const af=a.id.endsWith(':free')?1:0, bf=b.id.endsWith(':free')?1:0;
+    return af-bf || (b.created||0)-(a.created||0);
+  });
+  LIVE.count=list.length;
+
+  /* refresh whole model lists for aggregator / model-family providers */
+  for(const pv of Object.values(CATALOG)){
+    if(!pv.live) continue;
+    const matched = pv.live==='all' ? list : list.filter(x=>x.id.toLowerCase().startsWith(pv.live));
+    if(!matched.length) continue;
+    pv.models=matched.slice(0,pv.cap).map(liveModel);
+  }
+
+  /* refresh prices of bundled direct providers where the model ID matches */
+  for(const pv of Object.values(CATALOG)){
+    if(!pv.alias) continue;
+    const prefix=pv.alias+'/';
+    const byId=new Map(list.filter(x=>x.id.toLowerCase().startsWith(prefix)).map(x=>[x.id.toLowerCase(),x]));
+    const shortById=new Map([...byId].map(([k,v])=>[k.slice(prefix.length).replace(':free',''),v]));
+    for(const m of pv.models){
+      const hit=byId.get(prefix+m.id.toLowerCase()) || shortById.get(m.id.toLowerCase());
+      if(!hit) continue;
+      const next=liveRates(hit), base=m.p.standard||[0,0];
+      m.p=rescale(m.p,base,next);
+      if(m.long&&m.long.standard) m.long=rescale(m.long,m.long.standard,next);
+      m.live=true;
+    }
+    /* add up to 6 genuinely new models that appeared upstream — capped so refreshes stay stable */
+    const have=new Set(pv.models.map(m=>m.id.toLowerCase()));
+    const room=Math.max(0,6-pv.models.filter(m=>m.liveAdded).length);
+    const fresh=room ? list.filter(x=>x.id.toLowerCase().startsWith(prefix) && !have.has(x.id.slice(prefix.length).toLowerCase()))
+      .slice(0,room).map(x=>{const m=liveModel(x);m.id=x.id.slice(prefix.length);m.desc='Live from OpenRouter';m.liveAdded=true;return m;}) : [];
+    pv.models=[...fresh,...pv.models];
+  }
+}
+function relTime(ts){
+  const s=Math.max(0,Math.floor((Date.now()-ts)/1000));
+  if(s<10) return 'just now';
+  if(s<60) return s+'s ago';
+  const m=Math.floor(s/60);
+  if(m<60) return m+'m ago';
+  return Math.floor(m/60)+'h ago';
+}
+function updatePricePill(){
+  const el=$('pricePill');
+  if(!LIVE.lastCheck){ el.innerHTML=`Checking ${term('prices','price')}…`; el.className='pill'; decorateTerms(el); return; }
+  if(!LIVE.ok){ el.innerHTML=`Offline · saved ${term('prices','price')}`; el.className='pill off'; decorateTerms(el); return; }
+  el.innerHTML=`${term('Live','live')} ${term('prices','price')} · ${LIVE.count} models · checked ${relTime(LIVE.lastCheck)}`;
+  el.className='pill ok';
+  decorateTerms(el);
+}
+async function checkPrices(){
+  if(LIVE.busy) return;
+  LIVE.busy=true;
+  updatePricePill();
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),12000);
+  try{
+    const res=await fetch(LIVE.url,{signal:ctrl.signal,cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    if(!json||!Array.isArray(json.data)||!json.data.length) throw new Error('empty catalog');
+    applyLive(json.data);
+    const current=provider().models.find(m=>m.id===state.model);
+    if(!current) state.model=provider().models[0].id;
+    refreshUI();
+    LIVE.ok=true;
+  }catch(e){
+    LIVE.ok=false;
+  }finally{
+    clearTimeout(timer);
+    LIVE.lastCheck=Date.now();
+    LIVE.busy=false;
+    updatePricePill();
+  }
+}
+
+/* ---------- catalog + picker ---------- */
+function provider(){ return CATALOG[state.provider]; }
+function model(){ return provider().models.find(m=>m.id===state.model) || provider().models[0]; }
+function customRates(){
+  return {
+    in: Math.max(0,+$('custIn').value||0),
+    out: Math.max(0,+$('custOut').value||0),
+    cache: $('custCache').value==='' ? null : Math.max(0,+$('custCache').value||0)
+  };
+}
+function ratesFor(m,tier,reqIn){
+  if(m.custom){
+    const c=customRates();
+    return {in:c.in,out:c.out,cache:c.cache==null?c.in:c.cache,isLong:false};
+  }
+  const base = m.p[tier] || (()=>{const s=m.p.standard||[0,0];return [s[0]*(TIER_MULT[tier]||1),s[1]*(TIER_MULT[tier]||1),s[2]!=null?s[2]*(TIER_MULT[tier]||1):null];})();
+  let use=base,isLong=false;
+  if(m.long && reqIn>=(m.longAt||Infinity)){
+    isLong=true;
+    use=m.long[tier] || (()=>{const s=m.long.standard;return [s[0]*(TIER_MULT[tier]||1),s[1]*(TIER_MULT[tier]||1),s[2]!=null?s[2]*(TIER_MULT[tier]||1):null];})();
+  }
+  return {in:use[0],out:use[1],cache:use[2]!=null?use[2]:use[0],isLong};
+}
+function shortRates(m){
+  const r=ratesFor(m,state.tier,0);
+  const fmt=n=>'$'+n.toLocaleString('en-US',{maximumFractionDigits:3});
+  return fmt(r.in)+' / '+fmt(r.out);
+}
+function renderProviders(){
+  $('providers').innerHTML = Object.entries(CATALOG).map(([k,v])=>
+    `<button class="prov ${k===state.provider?'active':''}" data-p="${esc(k)}" title="${esc(v.name)}">
+       <span class="ico">${LOGOS[v.logo]||LOGOS.custom}</span><span class="nm">${esc(v.name)}</span>
+     </button>`).join('');
+  $('providers').querySelectorAll('.prov').forEach(b=>b.onclick=()=>{
+    state.provider=b.dataset.p;
+    state.model=provider().models[0].id;
+    state.tier=provider().tiers[0].id;
+    state.filter='all';
+    $('filters').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f==='all'));
+    refreshUI(); closePanel();
+  });
+}
+function renderModelButton(){
+  const p=provider(), m=model();
+  $('pickIco').innerHTML=LOGOS[p.logo]||LOGOS.custom;
+  const displayName=m.custom ? ($('custName').value.trim()||'My model') : m.label;
+  const badges=[];
+  if(m.badge) badges.push(`<span class="badge ${m.badge}">${m.badge==='pop'?'popular':m.badge}</span>`);
+  if(m.live&&!m.badge) badges.push('<span class="badge live">live price</span>');
+  $('pickName').innerHTML = esc(displayName) + (badges.length?' '+badges.join(' '):'');
+  $('pickMeta').innerHTML = `<span>${esc(p.name)}</span><span>·</span><span><b>${esc(shortRates(m))}</b> in / out per 1M</span>`;
+}
+function renderTiers(){
+  const p=provider();
+  if(!p.tiers.some(t=>t.id===state.tier)) state.tier=p.tiers[0].id;
+  $('tier').innerHTML=p.tiers.map(t=>`<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
+  $('tier').value=state.tier;
+}
+function renderMeta(){
+  const p=provider(),m=model(),r=ratesFor(m,state.tier,0);
+  const bits=[
+    `<span class="tag">${term('Input','input')} <b>$${r.in}/1M</b></span>`,
+    `<span class="tag">${term('Replies','replies')} <b>$${r.out}/1M</b></span>`
+  ];
+  if(r.cache!=null && r.cache<r.in) bits.push(`<span class="tag">${term('Cached','cache')} <b>$${r.cache}/1M</b></span>`);
+  if(m.context) bits.push(`<span class="tag">${term('Context','context')} <b>${Math.round(m.context/1000)}k</b></span>`);
+  if(m.long) bits.push(`<span class="tag">${term('Long context','long-context')} ${Math.round(m.longAt/1000)}k+: <b>$${(m.long[state.tier]||m.long.standard)[0]}/1M</b></span>`);
+  if(m.live) bits.push(`<span class="tag"><b>${term('Live','live')} ${term('price','price')}</b> from OpenRouter</span>`);
+  if(p.doc) bits.push(`<span class="tag">${term('price source','price-source')} <a href="${esc(p.doc)}" target="_blank" rel="noopener">↗</a></span>`);
+  if(m.note) bits.push(`<span class="tag note">${esc(m.note)}</span>`);
+  $('modelMeta').innerHTML=bits.join('');
+  decorateTerms($('modelMeta'));
+  $('customBox').style.display = m.custom ? 'block' : 'none';
+}
+function refreshUI(){
+  renderProviders(); renderModelButton(); renderTiers(); renderMeta(); calculate();
+  if(!$('modelPanel').hidden) renderModelList();
+}
+function filteredModels(){
+  const q=$('modelSearch').value.trim().toLowerCase();
+  let list=provider().models.filter(m=>{
+    if(state.filter==='budget'){const r=ratesFor(m,state.tier,0);return r.out<=2;}
+    if(state.filter==='flagship') return !!m.flagship;
+    if(state.filter==='new') return m.badge==='new';
+    return true;
+  });
+  if(q) list=list.filter(m=>(m.label+' '+(m.desc||'')+' '+m.id).toLowerCase().includes(q));
+  return list;
+}
+function renderModelList(){
+  const list=filteredModels();
+  $('modelCount').textContent=list.length+' model'+(list.length===1?'':'s');
+  if(!list.length){$('modelList').innerHTML='<div class="empty">No models match that search.</div>';return;}
+  const p=provider();
+  $('modelList').innerHTML=list.map((m,i)=>{
+    const badges=m.badge?`<span class="badge ${m.badge}">${m.badge==='pop'?'popular':m.badge}</span>`:(m.live?'<span class="badge live">live</span>':'');
+    return `<div class="prow ${m.id===state.model?'sel':''} ${i===state.kbIndex?'kb':''}" data-model="${esc(m.id)}" role="option">
+      <span class="dotm"></span>
+      <span class="pinfo"><span class="pname">${esc(m.label)} ${badges}</span><span class="pdesc">${esc(m.desc||'')}</span></span>
+      <span class="pprice"><b>${esc(shortRates(m))}</b></span>
+    </div>`;
+  }).join('');
+}
+function openPanel(){
+  $('modelPanel').hidden=false;
+  $('modelBtn').classList.add('open');
+  $('modelBtn').setAttribute('aria-expanded','true');
+  state.kbIndex=Math.max(0,filteredModels().findIndex(m=>m.id===state.model));
+  renderModelList();
+  setTimeout(()=>$('modelSearch').focus(),0);
+}
+function closePanel(){
+  $('modelPanel').hidden=true;
+  $('modelBtn').classList.remove('open');
+  $('modelBtn').setAttribute('aria-expanded','false');
+}
+function setModel(id){
+  state.model=id;
+  renderModelButton(); renderMeta(); calculate();
+}
+$('modelBtn').onclick=()=> $('modelPanel').hidden ? openPanel() : closePanel();
+$('modelSearch').oninput=()=>{state.kbIndex=0;renderModelList();};
+$('modelSearch').onkeydown=e=>{
+  const list=filteredModels();
+  if(e.key==='ArrowDown'){e.preventDefault();state.kbIndex=Math.min(list.length-1,state.kbIndex+1);renderModelList();scrollKB();}
+  else if(e.key==='ArrowUp'){e.preventDefault();state.kbIndex=Math.max(0,state.kbIndex-1);renderModelList();scrollKB();}
+  else if(e.key==='Enter'){e.preventDefault();if(list[state.kbIndex]){setModel(list[state.kbIndex].id);closePanel();}}
+  else if(e.key==='Escape'){closePanel();}
+};
+function scrollKB(){
+  const el=$('modelList').querySelector('.prow.kb');
+  if(el) el.scrollIntoView({block:'nearest'});
+}
+$('modelList').onclick=e=>{
+  const row=e.target.closest('[data-model]');
+  if(row){setModel(row.dataset.model);closePanel();}
+};
+$('filters').onclick=e=>{
+  const chip=e.target.closest('[data-f]');
+  if(!chip)return;
+  state.filter=chip.dataset.f;
+  $('filters').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===chip));
+  state.kbIndex=0;renderModelList();
+};
+document.addEventListener('click',e=>{
+  if(!$('picker').contains(e.target)) closePanel();
+});
+$('tier').onchange=()=>{state.tier=$('tier').value;renderModelButton();renderMeta();calculate();};
+
+/* ---------- helpers ---------- */
+function count(text){
+  if(!text) return 0;
+  const cjk=(text.match(/[\u3040-\u9fff\uac00-\ud7af]/g)||[]).length;
+  const rest=text.replace(/[\u3040-\u9fff\uac00-\ud7af]/g,'');
+  const words=(rest.match(/[A-Za-z0-9_]+|[^\s]/g)||[]).length;
+  return Math.max(1,Math.round(words*1.32+cjk*1.1+rest.length*.06));
+}
+function splitText(text,sep,custom){
+  const t=(text||'').trim();
+  if(!t) return [];
+  let parts;
+  if(sep==='line') parts=t.split(/\r?\n/);
+  else if(sep==='dash') parts=t.split(/^\s*(?:-{3,}|={3,})\s*$/m);
+  else if(sep==='custom'){const d=(custom||'###').trim()||'###';parts=t.split(d);}
+  else parts=t.split(/\n\s*\n/);
+  return parts.map(s=>s.trim()).filter(Boolean);
+}
+const EXAMPLE = `Summarise the following release notes into 5 crisp bullets for our changelog.\n\nWrite a Python function that retries an HTTP request with exponential backoff and jitter.\n\nExplain quantum tunnelling to a curious 10-year-old using one analogy.\n\nTurn this meeting transcript into a decision log with owners and due dates:\n"Alex will ship the dashboard by Friday; Priya owns the API migration; we agreed to delay the beta."\n\nReview this SQL query for correctness and suggest two indexes that would speed it up:\nSELECT u.id, COUNT(o.id) FROM users u LEFT JOIN orders o ON o.user_id=u.id WHERE u.created_at > '2026-01-01' GROUP BY u.id;`;
+
+/* ---------- calculator ---------- */
+function calculate(){
+  const p=provider(), m=model();
+  const scale = p.encScale || 1;
+  const prompts=splitText($('prompts').value,state.sep,$('customSep').value);
+  $('promptCount').textContent=prompts.length+(prompts.length===1?' prompt':' prompts');
+  const overhead=Math.max(0,+$('overhead').value||0);
+  const cachePct=Math.min(100,Math.max(0,+$('cachePct').value||0))/100;
+  const runs=Math.max(1,+$('runs').value||1);
+  const replies=splitText($('replies').value,state.sep,$('customSep').value);
+  const fixedOut=Math.max(0,+$('outTokens').value||0);
+
+  const rows=prompts.map((txt,i)=>{
+    const inTok=Math.max(1,Math.round(count(txt)*scale)+overhead);
+    let outTok;
+    if(replies.length){
+      outTok = replies.length===prompts.length
+        ? Math.round(count(replies[i])*scale)
+        : Math.round(replies.reduce((s,r)=>s+count(r)*scale,0)/replies.length);
+    } else outTok=fixedOut;
+    return {i:i+1,inTok,outTok,txt};
+  });
+
+  const money=n=> n>0&&n<.01
+    ? '$'+n.toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4})
+    : '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const precise=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:4});
+
+  let sumIn=0,sumOut=0,sumInCost=0,sumOutCost=0,anyLong=false;
+  const detail=rows.map(r=>{
+    const rates=ratesFor(m,state.tier,r.inTok);
+    if(rates.isLong) anyLong=true;
+    const cachedTok=Math.round(r.inTok*cachePct);
+    const inCost=((r.inTok-cachedTok)*rates.in+cachedTok*rates.cache)/1e6;
+    const outCost=(r.outTok*rates.out)/1e6;
+    sumIn+=r.inTok;sumOut+=r.outTok;sumInCost+=inCost;sumOutCost+=outCost;
+    return {...r,cost:inCost+outCost};
+  });
+  const total=(sumInCost+sumOutCost)*runs;
+  const avg=ratesFor(m,state.tier,0);
+
+  $('total').textContent=money(total);
+  $('amtsub').innerHTML=prompts.length
+    ? `<b>${prompts.length}</b> ${term(prompts.length===1?'prompt':'prompts','prompt')} · <b>${runs}</b> ${term(runs===1?'run':'runs','runs')} · <b>${(sumIn+sumOut).toLocaleString()}</b> ${term('tokens','token')} counted`
+    : `Add ${term('prompts','prompt')} to get started`;
+  $('plain').innerHTML=prompts.length
+    ? `Sending <b>${prompts.length}</b> ${term(prompts.length===1?'prompt':'prompts','prompt')} through <b>${esc(m.label)}</b>${runs>1?` ${runs} times`:''} would ${term('cost','cost')} roughly <b>${money(total)}</b>.`
+    : `Add some ${term('prompts','prompt')} on the left to see your ${term('estimated','estimate')} spend.`;
+
+  const inPct=total?sumInCost/(sumInCost+sumOutCost)*100:50;
+  $('barIn').style.width=inPct+'%';
+  $('barOut').style.width=(100-inPct)+'%';
+  $('legIn').textContent=money(sumInCost*runs)+' · '+Math.round(inPct)+'%';
+  $('legOut').textContent=money(sumOutCost*runs)+' · '+Math.round(100-inPct)+'%';
+
+  $('longWarn').style.display=anyLong?'block':'none';
+  $('longWarn').innerHTML=anyLong?`Note: One or more requests cross the ${term('long-context','long-context')} limit. Those tokens are priced at the higher long-context rate.`:'';
+
+  const effIn=sumIn?sumInCost/sumIn*1e6:avg.in;
+  const effOut=sumOut?sumOutCost/sumOut*1e6:avg.out;
+  const rateFmt=n=>'$'+n.toLocaleString('en-US',{maximumFractionDigits:3});
+  $('breakdown').innerHTML=prompts.length?`
+    <tr><td>Your prompts (${term('input','input')})</td><td class="num">${sumIn.toLocaleString()}</td><td class="num">${rateFmt(effIn)}</td><td class="num">${precise(sumInCost*runs)}</td></tr>
+    ${cachePct?`<tr><td class="muted">↳ ${term('from cache','cache')}</td><td class="num muted">${Math.round(sumIn*cachePct).toLocaleString()}</td><td class="num muted">${rateFmt(avg.cache)}</td><td class="num muted">included</td></tr>`:''}
+    <tr><td>AI ${term('replies','replies')} (${term('output','output')})</td><td class="num">${sumOut.toLocaleString()}</td><td class="num">${rateFmt(effOut)}</td><td class="num">${precise(sumOutCost*runs)}</td></tr>
+    <tr class="total"><td>${term('Total','total')}</td><td class="num">${(sumIn+sumOut).toLocaleString()}</td><td class="num">—</td><td class="num">${money(total)}</td></tr>`
+    :'<tr><td colspan="4" class="empty" style="border:0">Nothing to show yet.</td></tr>';
+
+  $('perCount').textContent=prompts.length?(runs>1?`× ${runs} runs`:''):'';
+  $('perPrompt').innerHTML=detail.length?detail.map(d=>
+    `<tr><td class="dim">${String(d.i).padStart(2,'0')}</td><td class="num">${d.inTok.toLocaleString()}</td><td class="num">${d.outTok.toLocaleString()}</td><td class="num">${precise(d.cost*runs)}</td></tr>`
+  ).join(''):`<tr><td colspan="4"><div class="empty"><span class="eico">✦</span>Paste your prompts and you'll see each one here.</div></td></tr>`;
+
+  /* compare models in the current provider */
+  $('cmpProvider').textContent=p.name;
+  const comp=p.models.map(mm=>{
+    const tier=p.tiers.some(t=>t.id===state.tier)?state.tier:p.tiers[0].id;
+    const s=p.encScale||1;
+    let c=0;
+    for(const r of rows){
+      const rt=ratesFor(mm,tier,r.inTok),ct=Math.round(r.inTok*cachePct);
+      c+=((r.inTok-ct)*rt.in+ct*rt.cache+r.outTok*rt.out)/1e6;
+    }
+    const rr=ratesFor(mm,tier,0);
+    return {m:mm,cost:c*runs,inRate:rr.in,outRate:rr.out};
+  }).sort((a,b)=>a.cost-b.cost);
+  $('compare').innerHTML=comp.length?comp.map((c,i)=>
+    `<tr class="${c.m.id===state.model?'mine':''}"><td class="rank">${i===0?'★':i+1}</td><td>${esc(c.m.label)}</td><td class="num">$${c.inRate}</td><td class="num">$${c.outRate}</td><td class="num">${money(c.cost)}</td></tr>`
+  ).join(''):'<tr><td colspan="5"><div class="empty">Add prompts to compare models.</div></td></tr>';
+
+  /* cheapest across every provider */
+  let best=null;
+  for(const [pk,pv] of Object.entries(CATALOG)){
+    if(pk==='custom') continue;
+    for(const mm of pv.models){
+      const tier=pv.tiers.some(t=>t.id===state.tier)?state.tier:pv.tiers[0].id;
+      const s=pv.encScale||1;
+      let c=0;
+      for(const r of rows){
+        const rt=ratesFor(mm,tier,r.inTok),ct=Math.round(r.inTok*cachePct);
+        const adjIn=Math.round(count(r.txt)*s)+overhead;
+        c+=((adjIn-ct)*rt.in+ct*rt.cache+r.outTok*rt.out)/1e6;
+      }
+      if(!best||c<best.cost) best={label:pv.name+' · '+mm.label,cost:c*runs};
+    }
+  }
+  $('cheapest').innerHTML=best&&prompts.length
+    ? `★ ${term('Cheapest','cheapest')} anywhere: ${esc(best.label)} — about ${money(best.cost)}.`
+    : '';
+
+  state.summary={total,prompts:prompts.length,runs,sumIn,sumOut,provider:p.name,model:m.label,tier:state.tier,detail,comp,best};
+  decorateTerms();
+}
+
+/* ---------- events ---------- */
+['prompts','replies','outTokens','runs','overhead','cachePct','customSep'].forEach(id=>$(id).addEventListener('input',calculate));
+['custIn','custOut','custCache','custName'].forEach(id=>$(id).addEventListener('input',()=>{renderModelButton();renderMeta();calculate();}));
+$('sepSeg').onclick=e=>{
+  const b=e.target.closest('[data-sep]');
+  if(!b)return;
+  state.sep=b.dataset.sep;
+  $('sepSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  $('customWrap').style.display=state.sep==='custom'?'block':'none';
+  const hints={blank:'Separate each prompt with a <b>blank line</b>.',line:'Each <b>non-empty line</b> counts as a prompt.',dash:'Prompts are split by <b>---</b> or <b>===</b> lines.',custom:`Prompts are split by "${esc($('customSep').value)}".`};
+  $('hintLine').innerHTML=hints[state.sep];
+  calculate();
+};
+$('example').onclick=()=>{$('prompts').value=EXAMPLE;$('replies').value='';calculate();};
+$('clear').onclick=()=>{$('prompts').value='';$('replies').value='';calculate();};
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  let out=await f.text();
+  try{
+    const j=JSON.parse(out);
+    if(Array.isArray(j)) out=j.map(x=>typeof x==='string'?x:(x.prompt||x.text||x.content||JSON.stringify(x))).join('\n\n');
+    else if(j.prompts) out=(Array.isArray(j.prompts)?j.prompts:[j.prompts]).join('\n\n');
+    else if(j.messages) out=j.messages.map(x=>x.content||x.text||'').filter(Boolean).join('\n\n');
+  }catch(_){}
+  $('prompts').value=out;calculate();e.target.value='';
+});
+$('copy').onclick=async()=>{
+  const s=state.summary;
+  if(!s||!s.prompts){alert('Paste some prompts first.');return;}
+  const checked=LIVE.ok ? 'Live prices checked '+new Date(LIVE.lastCheck).toLocaleTimeString()
+                        : 'Saved prices (offline)';
+  const txt=`LLM API Cost Estimate\n${s.provider} · ${s.model} · ${s.tier}\n${s.prompts} prompts × ${s.runs} run(s)\nInput: ${s.sumIn.toLocaleString()} tokens (length estimate) · Replies: ${s.sumOut.toLocaleString()} tokens\nTOTAL: $${s.total.toFixed(4)}\nCheapest alternative: ${s.best?s.best.label+' ($'+s.best.cost.toFixed(4)+')':'—'}\n${checked}.`;
+  try{await navigator.clipboard.writeText(txt);$('copy').textContent='✓ Copied';setTimeout(()=>$('copy').textContent='⧉ Copy summary',1500);}catch(_){alert(txt);}
+};
+$('download').onclick=()=>{
+  const s=state.summary;
+  if(!s||!s.prompts){alert('Paste some prompts first.');return;}
+  const rows=[['prompt','input_tokens','output_tokens','cost_usd'],...s.detail.map(d=>[d.i,d.inTok,d.outTok,(d.cost*s.runs).toFixed(6)])];
+  rows.push(['TOTAL',s.sumIn,s.sumOut,s.total.toFixed(6)]);
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`api-cost-${state.provider}-${state.model.replace(/[^a-z0-9-]+/gi,'-')}.csv`;a.click();URL.revokeObjectURL(a.href);
+};
+
+/* ---------- device detection ---------- */
+/* Label <html> as phone / tablet / computer so CSS can choose a layout.
+   Uses viewport width plus touch (coarse pointer) ability, and updates when
+   the window resizes, the device rotates, or the pointer type changes. */
+const coarsePointer = window.matchMedia ? window.matchMedia('(pointer: coarse)') : {matches:false};
+function detectDevice(){
+  const w = window.innerWidth || document.documentElement.clientWidth;
+  const touch = coarsePointer.matches;
+  let device;
+  if (w < 620 || (touch && w < 740)) device = 'phone';
+  else if (w < 1024 || (touch && w < 1200)) device = 'tablet';
+  else device = 'computer';
+  if (document.documentElement.dataset.device !== device){
+    document.documentElement.dataset.device = device;
+    state.device = device;
+  }
+  return device;
+}
+detectDevice();
+window.addEventListener('resize', detectDevice, {passive:true});
+window.addEventListener('orientationchange', detectDevice, {passive:true});
+if (coarsePointer.addEventListener) coarsePointer.addEventListener('change', detectDevice);
+else if (coarsePointer.addListener) coarsePointer.addListener(detectDevice);
+
+/* ---------- boot ---------- */
+state.model=provider().models[0].id;
+decorateTerms();
+refreshUI();
+updatePricePill();
+checkPrices();
+setInterval(checkPrices,LIVE.every);
+setInterval(updatePricePill,15000);
+window.addEventListener('online',checkPrices);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && LIVE.lastCheck && Date.now()-LIVE.lastCheck>LIVE.every) checkPrices();
+});
+</script>
+</body>
+</html>
